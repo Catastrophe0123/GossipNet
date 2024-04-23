@@ -26,6 +26,8 @@ func main() {
 	}
 	globalRegistry.Nodes[config.Name] = localServices.Services
 
+	config.Events = &delegate.EventDelegate{GlobalRegistry: globalRegistry}
+
 	config.Delegate = &delegate.CustomDelegate{
 		LocalServices:  localServices,
 		GlobalRegistry: globalRegistry,
