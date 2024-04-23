@@ -6,25 +6,36 @@ import (
 	"os"
 	"time"
 
+	"github.com/catastrophe0123/gossipnet/delegate"
 	"github.com/hashicorp/memberlist"
 )
 
 func main() {
-	// Create a configuration for memberlist
 	config := memberlist.DefaultLocalConfig()
 	config.Name = os.Args[len(os.Args)-1]
-	// Allow passing the bind port via args for multiple instances
 	if len(os.Args) > 1 {
 		config.BindPort = parseArg(os.Args[1])
 	}
 
-	// Create a new memberlist using the configuration
+	globalRegistry := &delegate.ServicesRegistry{Nodes: make(map[string][]delegate.Service)}
+	localServices := &delegate.NodeServices{
+		NodeID: config.Name,
+		Services: []delegate.Service{
+			{"MyService" + config.Name, "localhost", 8080, "active"},
+		},
+	}
+	globalRegistry.Nodes[config.Name] = localServices.Services
+
+	config.Delegate = &delegate.CustomDelegate{
+		LocalServices:  localServices,
+		GlobalRegistry: globalRegistry,
+	}
+
 	list, err := memberlist.Create(config)
 	if err != nil {
 		log.Fatal("Failed to create memberlist: ", err)
 	}
 
-	// Join an existing cluster by specifying at least one known member.
 	if len(os.Args) > 2 {
 		_, err := list.Join([]string{os.Args[2]})
 		if err != nil {
@@ -34,11 +45,11 @@ func main() {
 	defer list.Shutdown()
 	for {
 		time.Sleep(1000 * time.Millisecond)
-		// Output the members of the cluster
-		for _, member := range list.Members() {
-			fmt.Printf("Member: %s %s\n", member.Name, member.Addr)
-		}
-		fmt.Println("all members listed")
+
+		// for _, member := range list.Members() {
+		// 	fmt.Printf("Member: %s %s\n", member.Name, member.Addr)
+		// }
+		fmt.Printf("globalRegistry: %v\n", globalRegistry)
 	}
 
 	// Block forever
