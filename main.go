@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -11,10 +12,17 @@ import (
 )
 
 func main() {
+
+	nodeName := flag.String("name", "", "Node name")
+	bindPort := flag.String("bind", "", "Bind port")
+	peerAddr := flag.String("peer", "", "Peer address")
+	flag.Parse()
+
+	fmt.Println("nodename :", *nodeName, *bindPort, *peerAddr)
 	config := memberlist.DefaultLocalConfig()
-	config.Name = os.Args[len(os.Args)-1]
+	config.Name = *nodeName
 	if len(os.Args) > 1 {
-		config.BindPort = parseArg(os.Args[1])
+		config.BindPort = parseArg(*bindPort)
 	}
 
 	globalRegistry := &delegate.ServicesRegistry{Nodes: make(map[string][]delegate.Service)}
@@ -38,8 +46,8 @@ func main() {
 		log.Fatal("Failed to create memberlist: ", err)
 	}
 
-	if len(os.Args) > 2 {
-		_, err := list.Join([]string{os.Args[2]})
+	if peerAddr != nil {
+		_, err := list.Join([]string{*peerAddr})
 		if err != nil {
 			log.Println("Failed to join cluster: ", err)
 		}
