@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/catastrophe0123/gossipnet/delegate"
@@ -18,12 +20,17 @@ func main() {
 	peerAddr := flag.String("peer", "", "Peer address")
 	flag.Parse()
 
-	fmt.Println("nodename :", *nodeName, *bindPort, *peerAddr)
 	config := memberlist.DefaultLocalConfig()
+
 	config.Name = *nodeName
-	if len(os.Args) > 1 {
+	if *bindPort != "" {
 		config.BindPort = parseArg(*bindPort)
+		config.AdvertisePort = parseArg(*bindPort)
 	}
+
+	config.BindAddr = "127.0.0.1"
+	config.AdvertiseAddr = "127.0.0.1"
+	fmt.Printf("config.AdvertiseAddr: %v\n", config.AdvertiseAddr)
 
 	globalRegistry := &delegate.ServicesRegistry{Nodes: make(map[string][]delegate.Service)}
 	localServices := &delegate.NodeServices{
@@ -52,18 +59,27 @@ func main() {
 			log.Println("Failed to join cluster: ", err)
 		}
 	}
-	defer list.Shutdown()
-	for {
-		time.Sleep(1000 * time.Millisecond)
 
-		// for _, member := range list.Members() {
-		// 	fmt.Printf("Member: %s %s\n", member.Name, member.Addr)
-		// }
-		fmt.Printf("globalRegistry: %v\n", globalRegistry)
-	}
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
 	// Block forever
-	select {}
+loop:
+	for {
+		select {
+		case <-sigChan:
+			fmt.Println("shutting down")
+			err = list.Shutdown()
+			fmt.Printf("err: %v\n", err)
+			break loop
+		default:
+			time.Sleep(1000 * time.Millisecond)
+
+			fmt.Printf("globalRegistry: %v\n", globalRegistry)
+			fmt.Printf("globalRegistryppp: %p\n", globalRegistry)
+		}
+	}
+
 }
 
 func parseArg(arg string) int {
