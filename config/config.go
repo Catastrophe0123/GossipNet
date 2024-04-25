@@ -40,7 +40,10 @@ func readConfig(configFile string, config *Config) error {
 
 func ParseConfig(configFile string) (*Config, error) {
 	var config Config
-	readConfig(configFile, &config)
+	err := readConfig(configFile, &config)
+	if err != nil {
+		return nil, err
+	}
 	go WatchConfigFile(configFile, &config)
 	return &config, nil
 }
