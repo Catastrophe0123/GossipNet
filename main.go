@@ -87,7 +87,6 @@ loop:
 			time.Sleep(1000 * time.Millisecond)
 
 			fmt.Printf("globalRegistry: %v\n", globalRegistry)
-			fmt.Printf("globalRegistryppp: %p\n", globalRegistry)
 		}
 	}
 

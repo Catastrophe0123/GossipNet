@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/catastrophe0123/gossipnet/delegate"
 )
@@ -12,18 +13,34 @@ type Config struct {
 	Services []delegate.Service
 }
 
-func ParseConfig(configFile string) (*Config, error) {
-	var config Config
+func WatchConfigFile(configFile string, config *Config) {
+	for {
+		time.Sleep(5 * time.Second)
+		err := readConfig(configFile, config)
+		if err != nil {
+			fmt.Println("error reading configuration file:", err)
+		}
+	}
+}
+
+func readConfig(configFile string, config *Config) error {
 	bytes, err := os.ReadFile(configFile)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	err = json.Unmarshal(bytes, &config)
 	fmt.Printf("config: %v\n", config)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
+	return nil
+}
+
+func ParseConfig(configFile string) (*Config, error) {
+	var config Config
+	readConfig(configFile, &config)
+	go WatchConfigFile(configFile, &config)
 	return &config, nil
 }
