@@ -6,9 +6,11 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
+	"github.com/catastrophe0123/gossipnet/config"
 	"github.com/catastrophe0123/gossipnet/delegate"
 	"github.com/hashicorp/memberlist"
 )
@@ -18,7 +20,18 @@ func main() {
 	nodeName := flag.String("name", "", "Node name")
 	bindPort := flag.String("bind", "", "Bind port")
 	peerAddr := flag.String("peer", "", "Peer address")
+	configFile := flag.String("config-file", "./config.json", "configuration file")
 	flag.Parse()
+
+	configFilePath, err := filepath.Abs(*configFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	appConfig, err := config.ParseConfig(configFilePath)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	config := memberlist.DefaultLocalConfig()
 
@@ -34,10 +47,8 @@ func main() {
 
 	globalRegistry := &delegate.ServicesRegistry{Nodes: make(map[string][]delegate.Service)}
 	localServices := &delegate.NodeServices{
-		NodeID: config.Name,
-		Services: []delegate.Service{
-			{"MyService" + config.Name, "localhost", 8080, "active"},
-		},
+		NodeID:   config.Name,
+		Services: appConfig.Services,
 	}
 	globalRegistry.Nodes[config.Name] = localServices.Services
 
