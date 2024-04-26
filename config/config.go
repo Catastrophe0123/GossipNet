@@ -30,7 +30,6 @@ func readConfig(configFile string, config *Config) error {
 	}
 
 	err = json.Unmarshal(bytes, &config)
-	fmt.Printf("config: %v\n", config)
 	if err != nil {
 		return err
 	}
