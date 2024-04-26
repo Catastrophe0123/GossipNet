@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/catastrophe0123/gossipnet/config"
 	"github.com/catastrophe0123/gossipnet/delegate"
+	"github.com/catastrophe0123/gossipnet/dns"
 	"github.com/hashicorp/memberlist"
 )
 
@@ -34,17 +36,17 @@ func main() {
 	}
 
 	config := memberlist.DefaultLocalConfig()
-
 	config.Name = *nodeName
 	if *bindPort != "" {
 		config.BindPort = parseArg(*bindPort)
 		config.AdvertisePort = parseArg(*bindPort)
 	}
 
-	config.BindAddr = "127.0.0.1"
-	config.AdvertiseAddr = "127.0.0.1"
-	fmt.Printf("config.AdvertiseAddr: %v\n", config.AdvertiseAddr)
-
+	// config.BindAddr = "127.0.0.1"
+	// config.AdvertiseAddr = "127.0.0.1"
+	config.BindAddr = "0.0.0.0"
+	config.ProbeTimeout = 30 * time.Second
+	// config.AdvertiseAddr = "0.0.0.0"
 	globalRegistry := &delegate.ServicesRegistry{Nodes: make(map[string][]delegate.Service)}
 	localServices := &delegate.NodeServices{
 		NodeID:   config.Name,
@@ -71,15 +73,32 @@ func main() {
 		}
 	}
 
+	// init dns server
+	DNS := dns.NewDNS(globalRegistry, list)
+	dnsServer, err := DNS.SetupDNSServer()
+	if err != nil {
+		log.Fatal("Failed to initialize DNS server : ", err)
+	}
+
+	go (func() {
+		fmt.Println("starting DNS server")
+		if err := dnsServer.ListenAndServe(); err != nil {
+			log.Fatal("failed to start dns server : ", err)
+		}
+	})()
+
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
 	for {
 		select {
 		case <-sigChan:
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
 			fmt.Println("shutting down")
 			err = list.Shutdown()
 			fmt.Printf("err: %v\n", err)
+			dnsServer.ShutdownContext(ctx)
 			return
 		default:
 			time.Sleep(1000 * time.Millisecond)
