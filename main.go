@@ -20,7 +20,7 @@ func main() {
 	nodeName := flag.String("name", "", "Node name")
 	bindPort := flag.String("bind", "", "Bind port")
 	peerAddr := flag.String("peer", "", "Peer address")
-	configFile := flag.String("config-file", "./config.json", "configuration file")
+	configFile := flag.String("config-file", "config.json", "configuration file")
 	flag.Parse()
 
 	configFilePath, err := filepath.Abs(*configFile)
@@ -74,18 +74,15 @@ func main() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
-	// Block forever
-loop:
 	for {
 		select {
 		case <-sigChan:
 			fmt.Println("shutting down")
 			err = list.Shutdown()
 			fmt.Printf("err: %v\n", err)
-			break loop
+			return
 		default:
 			time.Sleep(1000 * time.Millisecond)
-
 			fmt.Printf("globalRegistry: %v\n", globalRegistry)
 		}
 	}
