@@ -2,24 +2,25 @@ package dns
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/catastrophe0123/gossipnet/delegate"
-	"github.com/hashicorp/memberlist"
 	"github.com/miekg/dns"
 )
 
 type DNS struct {
-	Registry   *delegate.ServicesRegistry
-	memberlist *memberlist.Memberlist
+	registry *delegate.Registry
 }
 
-func NewDNS(registry *delegate.ServicesRegistry, ml *memberlist.Memberlist) *DNS {
-	return &DNS{Registry: registry, memberlist: ml}
+func NewDNS(registry *delegate.Registry) *DNS {
+	return &DNS{registry: registry}
 }
 
-func (d *DNS) SetupDNSServer() (*dns.Server, error) {
+func (d *DNS) SetupDNSServer(serverAddr string) (*dns.Server, error) {
 
-	serverAddr := "127.0.0.1:5354"
+	if serverAddr == "" {
+		serverAddr = "127.0.0.1:5353"
+	}
 
 	server := &dns.Server{Addr: serverAddr, Net: "udp"}
 
@@ -40,7 +41,7 @@ func (d *DNS) SetupDNSServer() (*dns.Server, error) {
 				}
 				m.Answer = append(m.Answer, rr)
 			} else {
-				resp, err := dns.Exchange(r, "")
+				resp, err := dns.Exchange(r, "8.8.8.8:53")
 				if err != nil {
 					fmt.Println("Error forwarding query:", err)
 					return
@@ -55,25 +56,16 @@ func (d *DNS) SetupDNSServer() (*dns.Server, error) {
 }
 
 func (d *DNS) lookupDNS(domain string) (string, bool) {
-	fmt.Printf("d.Registry.Nodes: %v\n", d.Registry.Nodes)
-	for nodeName, services := range d.Registry.Nodes {
-		for _, service := range services {
-			if service.Name+"." == domain {
-				members := d.memberlist.Members()
-				fmt.Printf("members: %v\n", members)
-				for _, node := range members {
-					if node.Name == nodeName {
-						// return node.Addr.String() + ":" + strconv.FormatInt(
-						// 	int64(service.Port),
-						// 	10,
-						// ), true
-						return node.Addr.String(), true
-					}
-				}
-				// return service.Host, true
-				return "", false
-			}
-		}
+	serviceName := strings.TrimSuffix(domain, ".")
+	addr, err := d.registry.GetServiceAddress(serviceName)
+	fmt.Printf("addr: %v\n", addr)
+	fmt.Printf("err: %v\n", err)
+	if err != nil {
+		fmt.Printf("err getting server addresg: %v\n", err)
+		return "", false
+	}
+	if addr != "" {
+		return addr, true
 	}
 
 	return "", false

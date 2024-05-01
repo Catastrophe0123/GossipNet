@@ -10,7 +10,7 @@ import (
 )
 
 type Config struct {
-	Services []delegate.Service
+	Services *[]delegate.Service
 }
 
 func WatchConfigFile(configFile string, config *Config) {
