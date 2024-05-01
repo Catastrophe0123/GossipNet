@@ -66,11 +66,11 @@ func (r *Registry) GetServiceAddress(serviceName string) (string, error) {
 	var selectedAddress string
 	var found bool
 
-	for _, services := range r.Nodes {
+	for nodeId, services := range r.Nodes {
 		for _, service := range *services {
 			if service.Name == serviceName {
 				if selectedIndex == 0 {
-					address := r.NodeAddressManager.GetAddressOfNode(service.Name)
+					address := r.NodeAddressManager.GetAddressOfNode(nodeId)
 					selectedAddress = address
 					found = true
 					break
