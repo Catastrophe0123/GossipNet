@@ -7,18 +7,23 @@ import (
 )
 
 type EventDelegate struct {
-	GlobalRegistry *ServicesRegistry
+	GlobalRegistry *Registry
 }
 
-func (e *EventDelegate) NotifyJoin(*memberlist.Node) {
+func NewEventDelegate(registry *Registry) *EventDelegate {
+	return &EventDelegate{
+		GlobalRegistry: registry,
+	}
+}
 
+func (e *EventDelegate) NotifyJoin(node *memberlist.Node) {
+	fmt.Println("member joined :", node)
 }
 
 func (e *EventDelegate) NotifyLeave(node *memberlist.Node) {
 	fmt.Printf("member left : %v", node)
-	delete(e.GlobalRegistry.Nodes, node.Name)
+	e.GlobalRegistry.RemoveNode(node.Name)
 }
 
-func (e *EventDelegate) NotifyUpdate(*memberlist.Node) {
-
+func (e *EventDelegate) NotifyUpdate(node *memberlist.Node) {
 }
