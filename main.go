@@ -13,69 +13,75 @@ import (
 
 	"github.com/catastrophe0123/gossipnet/config"
 	"github.com/catastrophe0123/gossipnet/delegate"
+	"github.com/catastrophe0123/gossipnet/discovery"
 	"github.com/catastrophe0123/gossipnet/dns"
 	"github.com/hashicorp/memberlist"
 )
 
-func main() {
+type ApplicationConfig struct {
+	NodeName     string
+	BindPort     string
+	ProbeTimeout time.Duration
+	PeerAddr     string
+	BindAddr     string
+	DnsAddr      string
+}
 
+func getMemberlistConfig(appConfig *ApplicationConfig) *memberlist.Config {
+	config := memberlist.DefaultLocalConfig()
+	config.Name = appConfig.NodeName
+	if appConfig.BindPort != "" {
+		config.BindPort = parseArg(appConfig.BindPort)
+		config.AdvertisePort = parseArg(appConfig.BindPort)
+	}
+
+	if appConfig.BindAddr == "" {
+		config.BindAddr = "0.0.0.0"
+	} else {
+		config.BindAddr = appConfig.BindAddr
+	}
+
+	if appConfig.ProbeTimeout != 0 {
+		config.ProbeTimeout = appConfig.ProbeTimeout
+	} else {
+		config.ProbeTimeout = 30 * time.Second
+	}
+
+	return config
+}
+
+func main() {
 	nodeName := flag.String("name", "", "Node name")
 	bindPort := flag.String("bind", "", "Bind port")
 	peerAddr := flag.String("peer", "", "Peer address")
+	dnsAddr := flag.String("dnsAddr", "", "dns address")
 	configFile := flag.String("config-file", "config.json", "configuration file")
 	flag.Parse()
+
+	appConfig := ApplicationConfig{
+		NodeName:     *nodeName,
+		BindPort:     *bindPort,
+		PeerAddr:     *peerAddr,
+		ProbeTimeout: 30 * time.Second,
+		BindAddr:     "0.0.0.0",
+		DnsAddr:      *dnsAddr,
+	}
 
 	configFilePath, err := filepath.Abs(*configFile)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	appConfig, err := config.ParseConfig(configFilePath)
+	serviceConfig, err := config.ParseConfig(configFilePath)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	config := memberlist.DefaultLocalConfig()
-	config.Name = *nodeName
-	if *bindPort != "" {
-		config.BindPort = parseArg(*bindPort)
-		config.AdvertisePort = parseArg(*bindPort)
-	}
+	serviceDiscovery := discovery.NewServiceDiscovery()
+	registry := delegate.NewRegistry(serviceDiscovery)
 
-	// config.BindAddr = "127.0.0.1"
-	// config.AdvertiseAddr = "127.0.0.1"
-	config.BindAddr = "0.0.0.0"
-	config.ProbeTimeout = 30 * time.Second
-	// config.AdvertiseAddr = "0.0.0.0"
-	globalRegistry := &delegate.ServicesRegistry{Nodes: make(map[string][]delegate.Service)}
-	localServices := &delegate.NodeServices{
-		NodeID:   config.Name,
-		Services: appConfig.Services,
-	}
-	globalRegistry.Nodes[config.Name] = localServices.Services
-
-	config.Events = &delegate.EventDelegate{GlobalRegistry: globalRegistry}
-
-	config.Delegate = &delegate.CustomDelegate{
-		LocalServices:  localServices,
-		GlobalRegistry: globalRegistry,
-	}
-
-	list, err := memberlist.Create(config)
-	if err != nil {
-		log.Fatal("Failed to create memberlist: ", err)
-	}
-
-	if peerAddr != nil {
-		_, err := list.Join([]string{*peerAddr})
-		if err != nil {
-			log.Println("Failed to join cluster: ", err)
-		}
-	}
-
-	// init dns server
-	DNS := dns.NewDNS(globalRegistry, list)
-	dnsServer, err := DNS.SetupDNSServer()
+	serviceDiscovery.DNS = dns.NewDNS(registry)
+	dnsServer, err := serviceDiscovery.DNS.SetupDNSServer(appConfig.DnsAddr)
 	if err != nil {
 		log.Fatal("Failed to initialize DNS server : ", err)
 	}
@@ -86,6 +92,28 @@ func main() {
 			log.Fatal("failed to start dns server : ", err)
 		}
 	})()
+
+	memberlistConf := getMemberlistConfig(&appConfig)
+
+	serviceDiscovery.Registry = registry
+
+	sdDelegate := delegate.NewSDDelegate(registry)
+	eventDelegate := delegate.NewEventDelegate(registry)
+
+	memberlistConf.Delegate = sdDelegate
+	memberlistConf.Events = eventDelegate
+
+	localServices := &delegate.NodeServices{}
+	localServices.NodeID = memberlistConf.Name
+	localServices.Services = serviceConfig.Services
+
+	sdDelegate.SetLocalServices(localServices)
+	registry.UpdateRegistry(localServices)
+
+	list, err := serviceDiscovery.InitGossip(memberlistConf, appConfig.PeerAddr)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
@@ -102,10 +130,9 @@ func main() {
 			return
 		default:
 			time.Sleep(1000 * time.Millisecond)
-			fmt.Printf("globalRegistry: %v\n", globalRegistry)
+			// registry.Print()
 		}
 	}
-
 }
 
 func parseArg(arg string) int {
