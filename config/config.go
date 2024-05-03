@@ -9,8 +9,18 @@ import (
 	"github.com/catastrophe0123/gossipnet/delegate"
 )
 
+type ApplicationConfig struct {
+	NodeName     string
+	BindPort     string
+	ProbeTimeout time.Duration
+	PeerAddr     string
+	BindAddr     string
+	DnsAddr      string
+}
+
 type Config struct {
 	Services *[]delegate.Service
+	ApplicationConfig
 }
 
 func WatchConfigFile(configFile string, config *Config) {

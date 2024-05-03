@@ -18,16 +18,7 @@ import (
 	"github.com/hashicorp/memberlist"
 )
 
-type ApplicationConfig struct {
-	NodeName     string
-	BindPort     string
-	ProbeTimeout time.Duration
-	PeerAddr     string
-	BindAddr     string
-	DnsAddr      string
-}
-
-func getMemberlistConfig(appConfig *ApplicationConfig) *memberlist.Config {
+func getMemberlistConfig(appConfig *config.ApplicationConfig) *memberlist.Config {
 	config := memberlist.DefaultLocalConfig()
 	config.Name = appConfig.NodeName
 	if appConfig.BindPort != "" {
@@ -58,7 +49,7 @@ func main() {
 	configFile := flag.String("config-file", "config.json", "configuration file")
 	flag.Parse()
 
-	appConfig := ApplicationConfig{
+	appConfig := config.ApplicationConfig{
 		NodeName:     *nodeName,
 		BindPort:     *bindPort,
 		PeerAddr:     *peerAddr,
