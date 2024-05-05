@@ -58,31 +58,6 @@ func getNameservers(resolverPath string) ([]string, error) {
 	return nameservers, nil
 }
 
-// function to add a nameserver to resolv.conf
-func AddNameserver(nameserver string) error {
-	file, err := os.OpenFile("/etc/resolv.conf", os.O_APPEND|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	existing, err := nameserverExists(nameserver)
-	fmt.Printf("existing: %v\n", existing)
-	if err != nil {
-		return err
-	}
-	if existing {
-		return nil
-	}
-
-	_, err = file.WriteString("nameserver " + nameserver + "\n")
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func AddNameserverToTop(resolverPath string, nameserver string) error {
 	existingContent, err := os.ReadFile(resolverPath)
 	if err != nil {
@@ -99,30 +74,6 @@ func AddNameserverToTop(resolverPath string, nameserver string) error {
 	return nil
 }
 
-// function to check if a nameserver already exists in resolv.conf
-func nameserverExists(nameserver string) (bool, error) {
-	file, err := os.Open("/etc/resolv.conf")
-	if err != nil {
-		return false, err
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.HasPrefix(line, "nameserver "+nameserver+"\n") {
-			// if strings.HasPrefix(line, "nameserver "+nameserver) {
-			return true, nil
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return false, err
-	}
-
-	return false, nil
-}
-
 func (d *DNS) SetupDNSServer(serverAddr string) (*dns.Server, error) {
 
 	if serverAddr == "" {
@@ -136,7 +87,6 @@ func (d *DNS) SetupDNSServer(serverAddr string) (*dns.Server, error) {
 	}
 	fmt.Println("serveraddrr ; ", serverAddr)
 
-	// err := AddNameserver(serverAddr)
 	err := AddNameserverToTop(d.resolverPath, serverAddr)
 	if err != nil {
 		return nil, err
