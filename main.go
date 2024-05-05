@@ -71,7 +71,11 @@ func main() {
 	serviceDiscovery := discovery.NewServiceDiscovery()
 	registry := delegate.NewRegistry(serviceDiscovery)
 
-	serviceDiscovery.DNS = dns.NewDNS(registry)
+	serviceDiscovery.DNS, err = dns.NewDNS(registry, "")
+	if err != nil {
+		log.Fatal("Failed to create DNS server: ", err)
+	}
+
 	dnsServer, err := serviceDiscovery.DNS.SetupDNSServer(appConfig.DnsAddr)
 	if err != nil {
 		log.Fatal("Failed to initialize DNS server : ", err)
@@ -84,6 +88,7 @@ func main() {
 		}
 	})()
 
+	time.Sleep(2000)
 	memberlistConf := getMemberlistConfig(&appConfig)
 
 	serviceDiscovery.Registry = registry
@@ -121,7 +126,7 @@ func main() {
 			return
 		default:
 			time.Sleep(1000 * time.Millisecond)
-			// registry.Print()
+			registry.Print()
 		}
 	}
 }
