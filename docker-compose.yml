@@ -3,7 +3,7 @@ services:
     build:
       context: ./
       dockerfile: Dockerfile
-    command: 'go run main.go --bind 7000 --name starting --config-file config1.json'
+    command: 'go run main.go --bind 7000 --name starting --config-file config1.json --dnsAddr 127.0.0.1:53'
     ports:
       - '7000:7000/udp'
       - '7000:7000/tcp'
@@ -17,7 +17,7 @@ services:
     build:
       context: ./
       dockerfile: Dockerfile
-    command: 'go run main.go --bind 7018 --peer gossipnet1:7000 --name second --config-file config2.json'
+    command: 'go run main.go --bind 7018 --peer gossipnet1:7000 --name second --config-file config2.json --dnsAddr 127.0.0.1:53'
     ports:
       - '7018:7018/udp'
       - '7018:7018/tcp'
